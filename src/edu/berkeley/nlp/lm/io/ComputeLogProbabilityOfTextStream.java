@@ -13,10 +13,14 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.zip.GZIPInputStream;
-
+import java.io.*; 
 import edu.berkeley.nlp.lm.NgramLanguageModel;
 import edu.berkeley.nlp.lm.collections.Iterators;
 import edu.berkeley.nlp.lm.util.Logger;
+import org.json.simple.JSONObject;
+import org.json.simple.parser.JSONParser;
+import org.json.simple.parser.ParseException;
+
 
 /**
  * Computes the log probability of a list of files. With the <code>-g</code>
@@ -61,11 +65,50 @@ public class ComputeLogProbabilityOfTextStream
 		if (files.isEmpty()) files = Collections.singletonList("-");
 		Logger.setGlobalLogger(new Logger.SystemLogger(System.err, System.err));
 		NgramLanguageModel<String> lm = readBinary(isGoogleBinary, vocabFile, binaryFile);
-		double prob = computeProb(files, lm);
+		double prob = computeProbofJson(files, lm);
 		System.err.print("Log probability of text is: ");
 		System.out.println(prob);
 	}
+	private static double computeProbofJson(List<String> files, NgramLanguageModel<String> lm) throws IOException, FileNotFoundException {
+		double logProb = 0.0;
+		File file = new File(files.get(0));
+		BufferedReader br = new BufferedReader(new FileReader(file)); 
+		String sCurrentLine;
+		JSONParser parser = new JSONParser();
+		int correct = 0;
+		while (((sCurrentLine = br.readLine()) != null) ){
+    		try {
+    				Object obj;
+                    obj = parser.parse(sCurrentLine);
+                    JSONObject jsonObject = (JSONObject) obj;
+                    String sgood= (String) jsonObject.get("sentence_good");
+                    String sbad = (String) jsonObject.get("sentence_good");
+                    List<String> swords = Arrays.asList(sgood.trim().split("\\s+"));
+                    List<String> sbwords = Arrays.asList(sbad.trim().split("\\s+"));
+                    if(lm.scoreSentence(swords)>lm.scoreSentence(sbwords))
+                    {
+                    	correct++;
+                    }
 
+                } catch (ParseException e) {
+                    // TODO Auto-generated catch block
+                    e.printStackTrace();
+                } 
+  		} 
+  		System.out.println(correct);
+		// for (String file : files) {
+		// 	Logger.startTrack("Scoring file " + file + "; current log probability is " + logProb);
+		// 	final InputStream is = (file.equals("-")) ? System.in : (file.endsWith(".gz") ? new GZIPInputStream(new FileInputStream(file))
+		// 		: new FileInputStream(file));
+		// 	BufferedReader reader = new BufferedReader(new InputStreamReader(new BufferedInputStream(is)));
+		// 	for (String line : Iterators.able(IOUtils.lineIterator(reader))) {
+		// 		List<String> words = Arrays.asList(line.trim().split("\\s+"));
+		// 		logProb += lm.scoreSentence(words);
+		// 	}
+		// 	Logger.endTrack();
+		// }
+		return logProb;
+	}
 	/**
 	 * @param files
 	 * @param lm
